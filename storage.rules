@@ -1,0 +1,80 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+             firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.is_admin == true;
+    }
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Product images - admin can write, everyone can read
+    match /products/{imageId} {
+      allow read: if true; // Everyone can view product images
+      allow write: if isAdmin(); // Only admin can upload/modify product images
+      allow delete: if isAdmin();
+    }
+
+    // User profile images - user can write their own, everyone can read
+    match /profiles/{userId} {
+      allow read: if true; // Profile images are publicly readable
+      allow write: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Banner images - admin only
+    match /banners/{bannerId} {
+      allow read: if true; // Everyone can view banners
+      allow write: if isAdmin(); // Only admin can manage banners
+      allow delete: if isAdmin();
+    }
+
+    // Category icons - admin only
+    match /categories/{categoryId} {
+      allow read: if true; // Everyone can view category icons
+      allow write: if isAdmin(); // Only admin can manage categories
+      allow delete: if isAdmin();
+    }
+
+    // Promotional images - admin only
+    match /promotions/{promoId} {
+      allow read: if true; // Everyone can view promotional images
+      allow write: if isAdmin(); // Only admin can manage promotions
+      allow delete: if isAdmin();
+    }
+
+    // Order receipts/invoices - user specific
+    match /orders/{userId}/{orderId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin(); // Only admin can upload order documents
+      allow delete: if isAdmin();
+    }
+
+    // Temporary uploads - authenticated users only
+    match /temp/{userId}/{imageId} {
+      allow read, write: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Admin uploads - admin only
+    match /admin/{imageId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    // General file size and type restrictions
+    match /{allPaths=**} {
+      allow read, write: if resource.size < 10 * 1024 * 1024 && // 10MB max
+                           request.resource.contentType.matches('image/.*');
+    }
+  }
+}
