@@ -116,6 +116,21 @@ class FirestoreService {
     return await _db.collection('users').doc(uid).get();
   }
 
+  // Get all users as stream of document snapshots
+  Stream<QuerySnapshot<Map<String, dynamic>>> getUsersStream() {
+    return _db.collection('users').snapshots();
+  }
+  
+  // Get all users as a future
+  Future<List<Map<String, dynamic>>> getUsers() async {
+    final snapshot = await _db.collection('users').get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
+
   // Product methods
   Stream<List<Product>> getProducts() {
     return _db.collection('products').snapshots().map((snapshot) =>

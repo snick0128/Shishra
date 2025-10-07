@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shishra/services/storage_service.dart';
 import 'package:shishra/product.dart';
+import 'package:shishra/utils/responsive_layout.dart';
 import 'dart:io';
 
 class AdminProductsPage extends StatefulWidget {
@@ -29,21 +30,22 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
   void initState() {
     super.initState();
     _productsStream = _firestore.collection('products').snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList(),
-    );
+          (snapshot) =>
+              snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList(),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: ResponsiveLayout.getResponsivePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text(
-                'Product Management',
+              Text(
+                'Products',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -110,18 +112,20 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 if (snapshot.hasError) {
                   return Center(
                     child: Text('Error: ${snapshot.error}'),
                   );
                 }
-                
+
                 final products = snapshot.data ?? [];
                 final filteredProducts = _selectedCategory == 'All'
                     ? products
-                    : products.where((p) => p.category == _selectedCategory).toList();
-                
+                    : products
+                        .where((p) => p.category == _selectedCategory)
+                        .toList();
+
                 if (filteredProducts.isEmpty) {
                   return const Center(
                     child: Text(
@@ -130,10 +134,11 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                     ),
                   );
                 }
-                
+
                 return GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount:
+                        ResponsiveLayout.getResponsiveGridCount(context),
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                     childAspectRatio: 0.8,
@@ -168,17 +173,19 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 image: DecorationImage(
-                  image: NetworkImage(product.imageUrl.isNotEmpty 
-                      ? product.imageUrl 
+                  image: NetworkImage(product.imageUrl.isNotEmpty
+                      ? product.imageUrl
                       : 'https://via.placeholder.com/300x300?text=No+Image'),
                   fit: BoxFit.cover,
                 ),
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                   gradient: LinearGradient(
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
@@ -258,12 +265,17 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: product.stock > 5 ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                        color: product.stock > 5
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: product.stock > 5 ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+                          color: product.stock > 5
+                              ? Colors.green.withOpacity(0.3)
+                              : Colors.red.withOpacity(0.3),
                         ),
                       ),
                       child: Text(
@@ -291,10 +303,14 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
 
   void _showAddEditProductDialog({Product? product}) {
     final nameController = TextEditingController(text: product?.name ?? '');
-    final descriptionController = TextEditingController(text: product?.description ?? '');
-    final priceController = TextEditingController(text: product?.price.toString() ?? '');
-    final stockController = TextEditingController(text: product?.stock.toString() ?? '');
-    final materialController = TextEditingController(text: product?.material ?? '');
+    final descriptionController =
+        TextEditingController(text: product?.description ?? '');
+    final priceController =
+        TextEditingController(text: product?.price.toString() ?? '');
+    final stockController =
+        TextEditingController(text: product?.stock.toString() ?? '');
+    final materialController =
+        TextEditingController(text: product?.material ?? '');
     String selectedCategory = product?.category ?? _categories[1];
     List<File> selectedImages = [];
     bool isLoading = false;
@@ -311,7 +327,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 children: [
                   TextField(
                     controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Product Name *'),
+                    decoration:
+                        const InputDecoration(labelText: 'Product Name *'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -344,23 +361,27 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: stockController,
-                    decoration: const InputDecoration(labelText: 'Stock Quantity *'),
+                    decoration:
+                        const InputDecoration(labelText: 'Stock Quantity *'),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: materialController,
-                    decoration: const InputDecoration(labelText: 'Material (e.g., Silver, Gold)'),
+                    decoration: const InputDecoration(
+                        labelText: 'Material (e.g., Silver, Gold)'),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
-                        child: Text('Images (${selectedImages.length} selected)'),
+                        child:
+                            Text('Images (${selectedImages.length} selected)'),
                       ),
                       ElevatedButton(
                         onPressed: () async {
-                          final images = await _storageService.pickMultipleImages(maxImages: 5);
+                          final images = await _storageService
+                              .pickMultipleImages(maxImages: 5);
                           if (images.isNotEmpty) {
                             setDialogState(() {
                               selectedImages = images;
@@ -402,76 +423,90 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: isLoading ? null : () async {
-                  if (nameController.text.isEmpty ||
-                      priceController.text.isEmpty ||
-                      stockController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please fill all required fields')),
-                    );
-                    return;
-                  }
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (nameController.text.isEmpty ||
+                            priceController.text.isEmpty ||
+                            stockController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Please fill all required fields')),
+                          );
+                          return;
+                        }
 
-                  setDialogState(() {
-                    isLoading = true;
-                  });
+                        setDialogState(() {
+                          isLoading = true;
+                        });
 
-                  try {
-                    // Upload images if any
-                    List<String> imageUrls = product?.images ?? [];
-                    if (selectedImages.isNotEmpty) {
-                      imageUrls = await _storageService.uploadMultipleProductImages(selectedImages);
-                    }
+                        try {
+                          // Upload images if any
+                          List<String> imageUrls = product?.images ?? [];
+                          if (selectedImages.isNotEmpty) {
+                            imageUrls = await _storageService
+                                .uploadMultipleProductImages(selectedImages);
+                          }
 
-                    final newProduct = Product(
-                      id: product?.id ?? '',
-                      name: nameController.text,
-                      description: descriptionController.text,
-                      category: selectedCategory,
-                      images: imageUrls,
-                      price: double.parse(priceController.text),
-                      stock: int.parse(stockController.text),
-                      material: materialController.text,
-                      isNewArrival: product?.isNewArrival ?? true,
-                      tags: [selectedCategory.toLowerCase(), 'jewelry'],
-                      isAvailable: true,
-                      createdAt: product?.createdAt ?? DateTime.now(),
-                      updatedAt: DateTime.now(),
-                    );
+                          final newProduct = Product(
+                            id: product?.id ?? '',
+                            name: nameController.text,
+                            description: descriptionController.text,
+                            category: selectedCategory,
+                            images: imageUrls,
+                            price: double.parse(priceController.text),
+                            stock: int.parse(stockController.text),
+                            material: materialController.text,
+                            isNewArrival: product?.isNewArrival ?? true,
+                            tags: [selectedCategory.toLowerCase(), 'jewelry'],
+                            isAvailable: true,
+                            createdAt: product?.createdAt ?? DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          );
 
-                    if (product == null) {
-                      // Add new product
-                      await _firestore.collection('products').add(newProduct.toMap());
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Product added successfully!')),
-                        );
-                      }
-                    } else {
-                      // Update existing product
-                      await _firestore.collection('products').doc(product.id).update(newProduct.toMap());
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Product updated successfully!')),
-                        );
-                      }
-                    }
+                          if (product == null) {
+                            // Add new product
+                            await _firestore
+                                .collection('products')
+                                .add(newProduct.toMap());
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Product added successfully!')),
+                              );
+                            }
+                          } else {
+                            // Update existing product
+                            await _firestore
+                                .collection('products')
+                                .doc(product.id)
+                                .update(newProduct.toMap());
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Product updated successfully!')),
+                              );
+                            }
+                          }
 
-                    if (mounted) {
-                      Navigator.pop(context);
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e')),
-                      );
-                    }
-                  } finally {
-                    setDialogState(() {
-                      isLoading = false;
-                    });
-                  }
-                },
+                          if (mounted) {
+                            Navigator.pop(context);
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        } finally {
+                          setDialogState(() {
+                            isLoading = false;
+                          });
+                        }
+                      },
                 child: isLoading
                     ? const SizedBox(
                         width: 16,
@@ -520,7 +555,7 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       );
 
       await _firestore.collection('products').add(duplicatedProduct.toMap());
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product duplicated successfully!')),
@@ -540,7 +575,8 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Product'),
-        content: Text('Are you sure you want to delete "${product.name}"?\n\nThis action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete "${product.name}"?\n\nThis action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -549,19 +585,23 @@ class _AdminProductsPageState extends State<AdminProductsPage> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              
+
               try {
                 // Delete product images from storage
                 for (final imageUrl in product.images) {
                   await _storageService.deleteImage(imageUrl);
                 }
-                
+
                 // Delete product from Firestore
-                await _firestore.collection('products').doc(product.id).delete();
-                
+                await _firestore
+                    .collection('products')
+                    .doc(product.id)
+                    .delete();
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Product deleted successfully!')),
+                    const SnackBar(
+                        content: Text('Product deleted successfully!')),
                   );
                 }
               } catch (e) {

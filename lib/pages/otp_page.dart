@@ -120,10 +120,6 @@ class _OtpPageState extends State<OtpPage> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
       if (!mounted) return;
-      await AppState.of(context, listen: false).login(
-          userCredential.user!.uid,
-          widget.phoneNumber,
-          userCredential.user!.displayName ?? 'Jewelry Lover');
       await _handlePostLogin(userCredential.user);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -139,47 +135,59 @@ class _OtpPageState extends State<OtpPage> {
   }
 
   Future<void> _handlePostLogin(User? user) async {
-    if (!mounted) return;
+    if (!mounted || user == null) return;
 
     try {
-      if (user != null) {
-        final firestoreService = FirestoreService();
-        final userExists = await firestoreService.userExists(user.uid);
+      final firestoreService = FirestoreService();
 
-        if (mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (userExists) {
-              final hasOnboarded =
-                  sharedPrefs.getBool('onboarded_${user.uid}') ?? false;
-              if (!hasOnboarded) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (context) => const OnboardingPage()),
-                  (route) => false,
-                );
-              } else {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (context) => const MainNavigation()),
-                  (route) => false,
-                );
-              }
-            } else {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => RegistrationPage(
-                    uid: user.uid,
-                    phoneNumber: user.phoneNumber ?? '+91${widget.phoneNumber}',
-                  ),
-                ),
-                (route) => false,
-              );
-            }
-          });
+      // Check if user exists in Firestore
+      final bool userExists = await firestoreService.userExists(user.uid);
+
+      if (!mounted) return;
+
+      // Wait a moment for AppState's authStateChanges listener to update
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!mounted) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        if (userExists) {
+          // Check onboarding completion
+          final hasOnboarded =
+              sharedPrefs.getBool('onboarded_${user.uid}') ?? false;
+
+          if (!hasOnboarded) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const OnboardingPage()),
+              (route) => false,
+            );
+          } else {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainNavigation()),
+              (route) => false,
+            );
+          }
+        } else {
+          // New user - need to create Firestore document first
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => RegistrationPage(
+                uid: user.uid,
+                phoneNumber: user.phoneNumber ?? '+91${widget.phoneNumber}',
+              ),
+            ),
+            (route) => false,
+          );
         }
+      });
+    } catch (e, stack) {
+      debugPrint('❌ _handlePostLogin error: $e\n$stack');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showErrorSnackBar('Failed to complete login process. Please try again.');
       }
-    } catch (e) {
-      _showErrorSnackBar('Failed to check user existence.');
     }
   }
 
@@ -264,9 +272,9 @@ class _OtpPageState extends State<OtpPage> {
               const SizedBox(
                 height: 10,
               ),
-              Text(
+              const Text(
                 "We need to register your phone without getting started!",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                 ),
                 textAlign: TextAlign.center,

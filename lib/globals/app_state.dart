@@ -1,4 +1,4 @@
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:shishra/globals/themes.dart';
@@ -12,33 +12,131 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AppState extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   List<Product> _products = [];
   List<app_order.Order> _orders = [];
   StreamSubscription<List<Product>>? _productsSubscription;
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
+  StreamSubscription<List<app_order.Order>>? _ordersSubscription;
+  StreamSubscription<User?>? _authSubscription;
 
   AppState() {
-    FirebaseAuth.instance.authStateChanges().listen((user) {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       _productsSubscription?.cancel();
+      _userSubscription?.cancel();
+      _ordersSubscription?.cancel();
+      
       if (user == null) {
         _products = [];
+        _clearUserData();
         notifyListeners();
       } else {
-        _productsSubscription = _firestoreService.getProducts().listen((products) {
-          _products = products;
+        _currentUserId = user.uid;
+        _currentUserPhone = user.phoneNumber ?? '';
+        
+        _productsSubscription =
+            _firestoreService.getProducts().listen((products) {
+          // Deduplicate products by ID to prevent duplicates
+          final seen = <String>{};
+          _products = products.where((p) => seen.add(p.id)).toList();
           notifyListeners();
         });
+        
         // Fetch orders for logged-in user
-        _firestoreService.getOrders(user.uid).listen((orders) {
+        _ordersSubscription = _firestoreService.getOrders(user.uid).listen((orders) {
           _orders = orders;
           notifyListeners();
+        });
+        
+        // Fetch user-specific data - Direct Firestore access to avoid service issues
+        _userSubscription = _firestore
+            .collection('users')
+            .doc(user.uid)
+            .snapshots()
+            .listen((userDoc) {
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            if (data != null) {
+              _updateUserDataFromFirestore(data);
+            }
+          }
+        }, onError: (error) {
+          debugPrint('Error listening to user data: $error');
         });
       }
     });
   }
 
+  void _updateUserDataFromFirestore(Map<String, dynamic> data) {
+    try {
+      // Update wishlist
+      if (data.containsKey('wishlist')) {
+        _wishlist = Set<String>.from(data['wishlist'] ?? []);
+      }
+      
+      // Update recently viewed
+      if (data.containsKey('recentlyViewed')) {
+        _recentlyViewedIds = List<String>.from(data['recentlyViewed'] ?? []);
+      }
+      
+      // Update user name
+      if (data.containsKey('name')) {
+        _currentUserName = data['name'] ?? '';
+      }
+      
+      // Update cart from Firestore
+      if (data.containsKey('cart') && data['cart'] != null) {
+        _cartItems.clear();
+        final cartData = data['cart'] as List<dynamic>;
+        for (var item in cartData) {
+          final productId = item['productId'] as String;
+          final quantity = item['quantity'] as int;
+          final product = _products.firstWhere(
+            (p) => p.id == productId,
+            orElse: () => Product(
+              id: '',
+              name: '',
+              description: '',
+              category: '',
+              images: [],
+              price: 0,
+              stock: 0,
+              isNewArrival: false,
+              tags: [],
+              material: '',
+              isAvailable: false,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
+          if (product.id.isNotEmpty) {
+            _cartItems.add(CartItem(product: product, quantity: quantity));
+          }
+        }
+      }
+      
+      // Update addresses from Firestore
+      if (data.containsKey('addresses') && data['addresses'] != null) {
+        _addresses.clear();
+        final addressData = data['addresses'] as List<dynamic>;
+        for (var addr in addressData) {
+          _addresses.add(Address.fromMap(addr as Map<String, dynamic>));
+        }
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating user data from Firestore: $e');
+    }
+  }
+
   @override
   void dispose() {
+    _authSubscription?.cancel();
+    _userSubscription?.cancel();
     _productsSubscription?.cancel();
+    _ordersSubscription?.cancel();
     super.dispose();
   }
 
@@ -49,18 +147,17 @@ class AppState extends ChangeNotifier {
   ThemeData _theme = lightTheme;
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  final Set<String> _wishlist = {};
-  final List<String> _recentlyViewedIds = [];
+  Set<String> _wishlist = {};
+  List<String> _recentlyViewedIds = [];
   final Set<String> _selectedMetals = {};
   double? _minPriceFilter;
   double? _maxPriceFilter;
   bool _trendingOnly = false;
   String _appliedCoupon = '';
-  bool _isLoggedIn = false;
   String _currentUserPhone = '';
   String _currentUserName = '';
   String _currentUserId = '';
-  final List<Address> _addresses = []; // Should be fetched from Firestore for production
+  final List<Address> _addresses = [];
   final List<CartItem> _cartItems = [];
 
   // Getters
@@ -70,16 +167,19 @@ class AppState extends ChangeNotifier {
   String get selectedCategory => _selectedCategory;
   Set<String> get wishlist => _wishlist;
   List<app_order.Order> get orders => _orders;
-  bool get isLoggedIn => _isLoggedIn;
+  bool get isLoggedIn => FirebaseAuth.instance.currentUser != null;
   String get currentUserPhone => _currentUserPhone;
   String get currentUserName => _currentUserName;
+  String get currentUserId => _currentUserId;
   List<Address> get addresses => _addresses;
   Address? get defaultAddress =>
       _addresses.where((a) => a.isDefault).firstOrNull ??
       _addresses.firstOrNull;
   List<CartItem> get cartItems => _cartItems;
-  int get cartItemCount => _cartItems.fold(0, (sum, item) => sum + item.quantity);
-  double get cartTotal => _cartItems.fold(0, (sum, item) => sum + item.totalPrice);
+  int get cartItemCount =>
+      _cartItems.fold(0, (acc, item) => acc + item.quantity);
+  double get cartTotal =>
+      _cartItems.fold(0, (acc, item) => acc + item.totalPrice);
   String get appliedCoupon => _appliedCoupon;
 
   double get couponDiscountAmount {
@@ -95,7 +195,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  double get finalPayableTotal => (cartTotal - couponDiscountAmount).clamp(0, double.infinity);
+  double get finalPayableTotal =>
+      (cartTotal - couponDiscountAmount).clamp(0, double.infinity);
 
   bool isInWishlist(String productId) {
     return _wishlist.contains(productId);
@@ -108,14 +209,17 @@ class AppState extends ChangeNotifier {
       filteredProducts = filteredProducts
           .where((p) =>
               p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              p.description.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              p.description
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
               p.category.toLowerCase().contains(_searchQuery.toLowerCase()))
           .toList();
     }
 
     if (_selectedCategory != 'All') {
-      filteredProducts =
-          filteredProducts.where((p) => p.category == _selectedCategory).toList();
+      filteredProducts = filteredProducts
+          .where((p) => p.category == _selectedCategory)
+          .toList();
     }
 
     if (_selectedMetals.isNotEmpty) {
@@ -135,7 +239,8 @@ class AppState extends ChangeNotifier {
     }
 
     if (_trendingOnly) {
-      filteredProducts = filteredProducts.where((p) => p.isBestSeller ?? false).toList();
+      filteredProducts =
+          filteredProducts.where((p) => p.isBestSeller ?? false).toList();
     }
 
     return filteredProducts;
@@ -146,11 +251,27 @@ class AppState extends ChangeNotifier {
   }
 
   List<Product> get recentlyViewedProducts {
-    return _recentlyViewedIds.map((id) {
-      return _products.firstWhere((p) => p.id == id, orElse: () => Product(
-        id: '', name: '', description: '', category: '', images: [], price: 0, stock: 0, isNewArrival: false, tags: [], material: '', isAvailable: false, createdAt: DateTime.now(), updatedAt: DateTime.now(),
-      ));
-    }).where((p) => p.id.isNotEmpty).toList();
+    return _recentlyViewedIds
+        .map((id) {
+          return _products.firstWhere((p) => p.id == id,
+              orElse: () => Product(
+                    id: '',
+                    name: '',
+                    description: '',
+                    category: '',
+                    images: [],
+                    price: 0,
+                    stock: 0,
+                    isNewArrival: false,
+                    tags: [],
+                    material: '',
+                    isAvailable: false,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  ));
+        })
+        .where((p) => p.id.isNotEmpty)
+        .toList();
   }
 
   // Methods
@@ -169,55 +290,104 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleWishlist(String productId) {
+  Future<void> _updateUserField(String field, dynamic value) async {
+    if (!isLoggedIn) return;
+    
+    try {
+      await _firestore.collection('users').doc(_currentUserId).set({
+        field: value,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error updating $field: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> toggleWishlist(String productId) async {
     if (_wishlist.contains(productId)) {
       _wishlist.remove(productId);
     } else {
       _wishlist.add(productId);
     }
     notifyListeners();
+    
+    if (isLoggedIn) {
+      try {
+        await _updateUserField('wishlist', _wishlist.toList());
+      } catch (e) {
+        debugPrint('Error updating wishlist: $e');
+      }
+    }
   }
 
-  void addToCart(Product product) {
-    final existingIndex = _cartItems.indexWhere((item) => item.product.id == product.id);
+  Future<void> _saveCartToFirestore() async {
+    if (!isLoggedIn) return;
+    
+    try {
+      final cartData = _cartItems.map((item) => {
+        'productId': item.product.id,
+        'quantity': item.quantity,
+      }).toList();
+      
+      await _updateUserField('cart', cartData);
+    } catch (e) {
+      debugPrint('Error saving cart: $e');
+    }
+  }
+
+  Future<void> addToCart(Product product) async {
+    final existingIndex =
+        _cartItems.indexWhere((item) => item.product.id == product.id);
 
     if (existingIndex >= 0) {
-      _cartItems[existingIndex] =
-          _cartItems[existingIndex].copyWith(quantity: _cartItems[existingIndex].quantity + 1);
+      _cartItems[existingIndex] = _cartItems[existingIndex]
+          .copyWith(quantity: _cartItems[existingIndex].quantity + 1);
     } else {
       _cartItems.add(CartItem(product: product));
     }
     notifyListeners();
+    await _saveCartToFirestore();
   }
 
-  void removeFromCart(String productId) {
+  Future<void> removeFromCart(String productId) async {
     _cartItems.removeWhere((item) => item.product.id == productId);
     notifyListeners();
+    await _saveCartToFirestore();
   }
 
-  void updateQuantity(String productId, int quantity) {
+  Future<void> updateQuantity(String productId, int quantity) async {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      await removeFromCart(productId);
       return;
     }
     final index = _cartItems.indexWhere((item) => item.product.id == productId);
     if (index >= 0) {
       _cartItems[index] = _cartItems[index].copyWith(quantity: quantity);
       notifyListeners();
+      await _saveCartToFirestore();
     }
   }
 
-  void clearCart() {
+  Future<void> clearCart() async {
     _cartItems.clear();
     _appliedCoupon = '';
     notifyListeners();
+    await _saveCartToFirestore();
   }
 
-  void addToRecentlyViewed(String productId) {
+  Future<void> addToRecentlyViewed(String productId) async {
     _recentlyViewedIds.remove(productId);
     _recentlyViewedIds.insert(0, productId);
     if (_recentlyViewedIds.length > 10) {
       _recentlyViewedIds.removeRange(10, _recentlyViewedIds.length);
+    }
+    
+    if (isLoggedIn) {
+      try {
+        await _updateUserField('recentlyViewed', _recentlyViewedIds);
+      } catch (e) {
+        debugPrint('Error updating recently viewed: $e');
+      }
     }
     notifyListeners();
   }
@@ -267,34 +437,41 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Authentication methods
-  Future<void> login(String userId, String phoneNumber, String name) async {
-    _isLoggedIn = true;
-    _currentUserId = userId;
-    _currentUserPhone = phoneNumber;
-    _currentUserName = name;
-    // Orders are fetched in the constructor's authStateChanges listener
-    notifyListeners();
-  }
-
-  Future<void> logout() async {
-    _isLoggedIn = false;
-    _currentUserId = '';
-    _currentUserPhone = '';
-    _currentUserName = '';
-    // Clear user-specific data
+  // Authentication methods - Simplified since auth is handled by listener
+  void _clearUserData() {
     _cartItems.clear();
     _wishlist.clear();
     _orders.clear();
-    notifyListeners();
+    _recentlyViewedIds.clear();
+    _addresses.clear();
+    _currentUserId = '';
+    _currentUserPhone = '';
+    _currentUserName = '';
   }
 
-  void updateUserName(String name) {
+  Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
+    // authStateChanges listener will handle clearing data
+  }
+
+  Future<void> updateUserName(String name) async {
     _currentUserName = name;
     notifyListeners();
+    
+    if (isLoggedIn) {
+      try {
+        await _updateUserField('name', name);
+      } catch (e) {
+        debugPrint('Error updating user name: $e');
+      }
+    }
   }
 
   Future<void> placeOrder(Address shippingAddress) async {
+    if (!isLoggedIn) {
+      throw Exception('User must be logged in to place order');
+    }
+    
     final order = app_order.Order(
       id: '', // Firestore will generate this
       userId: _currentUserId,
@@ -304,33 +481,55 @@ class AppState extends ChangeNotifier {
       status: 'Pending',
       createdAt: DateTime.now(),
     );
-    await _firestoreService.addOrder(order);
-    clearCart();
+    
+    try {
+      await _firestoreService.addOrder(order);
+      await clearCart();
+    } catch (e) {
+      debugPrint('Error placing order: $e');
+      rethrow;
+    }
   }
 
-  // Address management methods
-  void addAddress(Address address) {
+  // Address management methods with Firestore sync
+  Future<void> _saveAddressesToFirestore() async {
+    if (!isLoggedIn) return;
+    
+    try {
+      final addressData = _addresses.map((addr) => addr.toMap()).toList();
+      await _updateUserField('addresses', addressData);
+    } catch (e) {
+      debugPrint('Error saving addresses: $e');
+    }
+  }
+
+  Future<void> addAddress(Address address) async {
     _addresses.add(address);
     notifyListeners();
+    await _saveAddressesToFirestore();
   }
 
-  void updateAddress(Address updatedAddress) {
+  Future<void> updateAddress(Address updatedAddress) async {
     final index = _addresses.indexWhere((addr) => addr.id == updatedAddress.id);
     if (index >= 0) {
       _addresses[index] = updatedAddress;
       notifyListeners();
+      await _saveAddressesToFirestore();
     }
   }
 
-  void deleteAddress(String addressId) {
+  Future<void> deleteAddress(String addressId) async {
     _addresses.removeWhere((addr) => addr.id == addressId);
     notifyListeners();
+    await _saveAddressesToFirestore();
   }
 
-  void setDefaultAddress(String addressId) {
+  Future<void> setDefaultAddress(String addressId) async {
     for (int i = 0; i < _addresses.length; i++) {
-      _addresses[i] = _addresses[i].copyWith(isDefault: _addresses[i].id == addressId);
+      _addresses[i] =
+          _addresses[i].copyWith(isDefault: _addresses[i].id == addressId);
     }
     notifyListeners();
+    await _saveAddressesToFirestore();
   }
 }

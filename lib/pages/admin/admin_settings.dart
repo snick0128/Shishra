@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shishra/services/admin_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shishra/utils/responsive_layout.dart';
 
 class AdminSettingsPage extends StatefulWidget {
   const AdminSettingsPage({super.key});
@@ -10,14 +12,12 @@ class AdminSettingsPage extends StatefulWidget {
 
 class _AdminSettingsPageState extends State<AdminSettingsPage> {
   final AdminService _adminService = AdminService();
-  bool _maintenanceMode = false;
-  bool _allowNewRegistrations = true;
-  bool _enableNotifications = true;
-
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const String _settingsDocId = 'app_config';
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: ResponsiveLayout.getResponsivePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -38,108 +38,122 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: ListView(
-              children: [
-                _buildSettingsSection(
-                  'App Settings',
-                  [
-                    _buildSwitchTile(
-                      'Maintenance Mode',
-                      'Temporarily disable customer access',
-                      _maintenanceMode,
-                      Icons.build,
-                      (value) {
-                        setState(() {
-                          _maintenanceMode = value;
-                        });
-                        _showMaintenanceModeDialog(value);
-                      },
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: _firestore
+                  .collection('settings')
+                  .doc(_settingsDocId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final settingsData =
+                    snapshot.data?.data() as Map<String, dynamic>? ?? {};
+                final maintenanceMode =
+                    settingsData['maintenanceMode'] as bool? ?? false;
+                final allowNewRegistrations =
+                    settingsData['allowNewRegistrations'] as bool? ?? true;
+                final enableNotifications =
+                    settingsData['enableNotifications'] as bool? ?? true;
+
+                return ListView(
+                  children: [
+                    _buildSettingsSection(
+                      'App Settings',
+                      [
+                        _buildSwitchTile(
+                          'Maintenance Mode',
+                          'Temporarily disable customer access',
+                          maintenanceMode,
+                          Icons.build,
+                          (value) {
+                            _showMaintenanceModeDialog(value);
+                          },
+                        ),
+                        _buildSwitchTile(
+                          'Allow New Registrations',
+                          'Allow new customers to create accounts',
+                          allowNewRegistrations,
+                          Icons.person_add,
+                          (value) {
+                            _updateSetting('allowNewRegistrations', value);
+                          },
+                        ),
+                        _buildSwitchTile(
+                          'Push Notifications',
+                          'Send notifications to customers',
+                          enableNotifications,
+                          Icons.notifications,
+                          (value) {
+                            _updateSetting('enableNotifications', value);
+                          },
+                        ),
+                      ],
                     ),
-                    _buildSwitchTile(
-                      'Allow New Registrations',
-                      'Allow new customers to create accounts',
-                      _allowNewRegistrations,
-                      Icons.person_add,
-                      (value) {
-                        setState(() {
-                          _allowNewRegistrations = value;
-                        });
-                      },
+                    const SizedBox(height: 24),
+                    _buildSettingsSection(
+                      'Security',
+                      [
+                        _buildActionTile(
+                          'Change Admin Password',
+                          'Update admin access credentials',
+                          Icons.lock_reset,
+                          _changeAdminPassword,
+                        ),
+                        _buildActionTile(
+                          'View Login Logs',
+                          'Check admin access history',
+                          Icons.history,
+                          () => _showSnackBar('Login logs (Demo)'),
+                        ),
+                      ],
                     ),
-                    _buildSwitchTile(
-                      'Push Notifications',
-                      'Send notifications to customers',
-                      _enableNotifications,
-                      Icons.notifications,
-                      (value) {
-                        setState(() {
-                          _enableNotifications = value;
-                        });
-                      },
+                    const SizedBox(height: 24),
+                    _buildSettingsSection(
+                      'Store Information',
+                      [
+                        _buildActionTile(
+                          'Store Details',
+                          'Edit store name, address, contact info',
+                          Icons.store,
+                          () => _showStoreDetailsDialog(settingsData),
+                        ),
+                        _buildActionTile(
+                          'Payment Settings',
+                          'Configure payment methods',
+                          Icons.payment,
+                          () => _showSnackBar('Payment settings (Demo)'),
+                        ),
+                        _buildActionTile(
+                          'Shipping Settings',
+                          'Configure delivery options',
+                          Icons.local_shipping,
+                          () => _showSnackBar('Shipping settings (Demo)'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSettingsSection(
+                      'Data & Analytics',
+                      [
+                        _buildActionTile(
+                          'Export Data',
+                          'Download orders, products, customers data',
+                          Icons.download,
+                          () => _showSnackBar('Data export started (Demo)'),
+                        ),
+                        _buildActionTile(
+                          'Analytics Dashboard',
+                          'View detailed sales analytics',
+                          Icons.analytics,
+                          () => _showSnackBar('Analytics (Demo)'),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
-                _buildSettingsSection(
-                  'Security',
-                  [
-                    _buildActionTile(
-                      'Change Admin Password',
-                      'Update admin access credentials',
-                      Icons.lock_reset,
-                      _changeAdminPassword,
-                    ),
-                    _buildActionTile(
-                      'View Login Logs',
-                      'Check admin access history',
-                      Icons.history,
-                      () => _showSnackBar('Login logs (Demo)'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildSettingsSection(
-                  'Store Information',
-                  [
-                    _buildActionTile(
-                      'Store Details',
-                      'Edit store name, address, contact info',
-                      Icons.store,
-                      () => _showStoreDetailsDialog(),
-                    ),
-                    _buildActionTile(
-                      'Payment Settings',
-                      'Configure payment methods',
-                      Icons.payment,
-                      () => _showSnackBar('Payment settings (Demo)'),
-                    ),
-                    _buildActionTile(
-                      'Shipping Settings',
-                      'Configure delivery options',
-                      Icons.local_shipping,
-                      () => _showSnackBar('Shipping settings (Demo)'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildSettingsSection(
-                  'Data & Analytics',
-                  [
-                    _buildActionTile(
-                      'Export Data',
-                      'Download orders, products, customers data',
-                      Icons.download,
-                      () => _showSnackBar('Data export started (Demo)'),
-                    ),
-                    _buildActionTile(
-                      'Analytics Dashboard',
-                      'View detailed sales analytics',
-                      Icons.analytics,
-                      () => _showSnackBar('Analytics (Demo)'),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],
@@ -203,11 +217,23 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
     );
   }
 
+  Future<void> _updateSetting(String key, dynamic value) async {
+    try {
+      await _firestore
+          .collection('settings')
+          .doc(_settingsDocId)
+          .set({key: value}, SetOptions(merge: true));
+    } catch (e) {
+      _showSnackBar('Error updating setting: $e');
+    }
+  }
+
   void _showMaintenanceModeDialog(bool isEnabled) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isEnabled ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode'),
+        title: Text(
+            isEnabled ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode'),
         content: Text(
           isEnabled
               ? 'This will prevent customers from accessing the app. Only admin can access during maintenance.'
@@ -216,18 +242,18 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
         actions: [
           TextButton(
             onPressed: () {
-              setState(() {
-                _maintenanceMode = !isEnabled;
-              });
               Navigator.pop(context);
             },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              await _updateSetting('maintenanceMode', isEnabled);
               Navigator.pop(context);
               _showSnackBar(
-                isEnabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
+                isEnabled
+                    ? 'Maintenance mode enabled'
+                    : 'Maintenance mode disabled',
               );
             },
             child: const Text('Confirm'),
@@ -284,19 +310,22 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (newPasswordController.text != confirmPasswordController.text) {
+              if (newPasswordController.text !=
+                  confirmPasswordController.text) {
                 _showSnackBar('Passwords do not match');
                 return;
               }
-              
+
               final success = await _adminService.changeAdminPassword(
                 oldPasswordController.text,
                 newPasswordController.text,
               );
-              
+
               Navigator.pop(context);
               _showSnackBar(
-                success ? 'Password updated successfully' : 'Failed to update password',
+                success
+                    ? 'Password updated successfully'
+                    : 'Failed to update password',
               );
             },
             child: const Text('Update'),
@@ -306,28 +335,41 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
     );
   }
 
-  void _showStoreDetailsDialog() {
+  void _showStoreDetailsDialog(Map<String, dynamic> currentSettings) {
+    final storeNameController =
+        TextEditingController(text: currentSettings['storeName'] ?? '');
+    final emailController =
+        TextEditingController(text: currentSettings['contactEmail'] ?? '');
+    final phoneController =
+        TextEditingController(text: currentSettings['phoneNumber'] ?? '');
+    final addressController =
+        TextEditingController(text: currentSettings['address'] ?? '');
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Store Details'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              decoration: InputDecoration(labelText: 'Store Name'),
+              controller: storeNameController,
+              decoration: const InputDecoration(labelText: 'Store Name'),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(labelText: 'Contact Email'),
+              controller: emailController,
+              decoration: const InputDecoration(labelText: 'Contact Email'),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(labelText: 'Phone Number'),
+              controller: phoneController,
+              decoration: const InputDecoration(labelText: 'Phone Number'),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
-              decoration: InputDecoration(labelText: 'Address'),
+              controller: addressController,
+              decoration: const InputDecoration(labelText: 'Address'),
               maxLines: 3,
             ),
           ],
@@ -338,7 +380,14 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              await _firestore.collection('settings').doc(_settingsDocId).set({
+                'storeName': storeNameController.text,
+                'contactEmail': emailController.text,
+                'phoneNumber': phoneController.text,
+                'address': addressController.text,
+              }, SetOptions(merge: true));
+
               Navigator.pop(context);
               _showSnackBar('Store details updated (Demo)');
             },

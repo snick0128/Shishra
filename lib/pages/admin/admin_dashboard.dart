@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shishra/services/admin_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shishra/pages/admin/admin_orders.dart';
 import 'package:shishra/pages/admin/admin_products.dart';
 import 'package:shishra/pages/admin/admin_users.dart';
 import 'package:shishra/pages/admin/admin_settings.dart';
 import 'package:shishra/pages/login_page.dart';
+import 'package:shishra/utils/responsive_layout.dart';
 import 'package:another_flushbar/flushbar.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -109,6 +111,53 @@ class _AdminDashboardState extends State<AdminDashboard> {
     ).show(context);
   }
 
+  Widget _buildSidebar(BuildContext context) {
+    return Container(
+      width: 250,
+      color: Colors.grey.shade50,
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _tabs.length,
+              itemBuilder: (context, index) {
+                final tab = _tabs[index];
+                final isSelected = _selectedIndex == index;
+                return Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? tab.color.withOpacity(0.1) : null,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isSelected
+                        ? Border.all(color: tab.color.withOpacity(0.3))
+                        : null,
+                  ),
+                  child: ListTile(
+                    leading: Icon(
+                      tab.icon,
+                      color: isSelected ? tab.color : Colors.grey.shade600,
+                    ),
+                    title: Text(
+                      tab.title,
+                      style: TextStyle(
+                        color: isSelected ? tab.color : Colors.grey.shade700,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    onTap: () => _onTabTapped(index),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -140,6 +189,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
+        leading: ResponsiveLayout.isDesktop(context)
+            ? null
+            : Builder(
+                builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer())),
         actions: [
           IconButton(
             onPressed: _exitAdminMode,
@@ -148,76 +203,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
-      body: Row(
-        children: [
-          // Sidebar
-          Container(
-            width: 250,
-            color: Colors.grey.shade50,
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _tabs.length,
-                    itemBuilder: (context, index) {
-                      final tab = _tabs[index];
-                      final isSelected = _selectedIndex == index;
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? tab.color.withOpacity(0.1) : null,
-                          borderRadius: BorderRadius.circular(8),
-                          border: isSelected ? Border.all(color: tab.color.withOpacity(0.3)) : null,
-                        ),
-                        child: ListTile(
-                          leading: Icon(
-                            tab.icon,
-                            color: isSelected ? tab.color : Colors.grey.shade600,
-                          ),
-                          title: Text(
-                            tab.title,
-                            style: TextStyle(
-                              color: isSelected ? tab.color : Colors.grey.shade700,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          onTap: () => _onTabTapped(index),
-                        ),
-                      );
-                    },
+      drawer: ResponsiveLayout.isDesktop(context)
+          ? null
+          : Drawer(child: _buildSidebar(context)),
+      body: SafeArea(
+        child: ResponsiveLayout.isDesktop(context)
+            ? Row(
+                children: [
+                  _buildSidebar(context),
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                      },
+                      children: [
+                        AdminOverview(onShowMessage: _showSuccessMessage),
+                        const AdminOrdersPage(),
+                        const AdminProductsPage(),
+                        const AdminUsersPage(),
+                        const AdminSettingsPage(),
+                      ],
+                    ),
                   ),
-                ),
-                const Divider(),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Admin Tools',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Manage your jewellery store',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Main content
-          Expanded(
-            child: PageView(
+                ],
+              )
+            : PageView(
               controller: _pageController,
               onPageChanged: (index) {
                 setState(() {
@@ -232,8 +245,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const AdminSettingsPage(),
               ],
             ),
-          ),
-        ],
       ),
     );
   }
@@ -280,41 +291,66 @@ class AdminOverview extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.5,
-              children: [
-                _buildOverviewCard(
-                  'Total Orders',
-                  '124',
-                  Icons.shopping_bag,
-                  Colors.green,
-                  '+12%',
-                ),
-                _buildOverviewCard(
-                  'Products',
-                  '45',
-                  Icons.inventory,
-                  Colors.orange,
-                  '+5%',
-                ),
-                _buildOverviewCard(
-                  'Customers',
-                  '89',
-                  Icons.people,
-                  Colors.purple,
-                  '+8%',
-                ),
-                _buildOverviewCard(
-                  'Revenue',
-                  '₹2,34,567',
-                  Icons.currency_rupee,
-                  Colors.blue,
-                  '+15%',
-                ),
-              ],
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: ResponsiveLayout.getResponsiveGridCount(context),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                final List<Widget> children = [
+                  _buildStreamedOverviewCard(
+                    title: 'Total Orders',
+                    icon: Icons.shopping_bag,
+                    color: Colors.green,
+                    stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+                    builder: (snapshot) => snapshot.data != null
+                        ? snapshot.data!.docs.length.toString()
+                        : '0',
+                  ),
+                  _buildStreamedOverviewCard(
+                    title: 'Products',
+                    icon: Icons.inventory,
+                    color: Colors.orange,
+                    stream: FirebaseFirestore.instance.collection('products').snapshots(),
+                    builder: (snapshot) => snapshot.data != null
+                        ? snapshot.data!.docs.length.toString()
+                        : '0',
+                  ),
+                  _buildStreamedOverviewCard(
+                    title: 'Customers',
+                    icon: Icons.people,
+                    color: Colors.purple,
+                    stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                    builder: (snapshot) => snapshot.data != null
+                        ? snapshot.data!.docs.length.toString()
+                        : '0',
+                  ),
+                  _buildStreamedOverviewCard(
+                    title: 'Revenue',
+                    icon: Icons.currency_rupee,
+                    color: Colors.blue,
+                    stream: FirebaseFirestore.instance
+                        .collection('orders')
+                        .where('status', whereIn: ['Confirmed', 'Shipped', 'Delivered'])
+                        .snapshots(),
+                    builder: (snapshot) {
+                      if (!snapshot.hasData) return '0';
+                      double totalRevenue = 0;
+                      for (var doc in snapshot.data!.docs) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        if (data.containsKey('total')) {
+                          totalRevenue += (data['total'] as num).toDouble();
+                        }
+                      }
+                      return '₹${totalRevenue.toStringAsFixed(0)}';
+                    },
+                  ),
+                ];
+                return children[index];
+              },
             ),
           ),
         ],
@@ -322,13 +358,42 @@ class AdminOverview extends StatelessWidget {
     );
   }
 
-  Widget _buildOverviewCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String growth,
-  ) {
+  Widget _buildStreamedOverviewCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Stream<QuerySnapshot<Map<String, dynamic>>> stream,
+    required String Function(AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) builder,
+  }) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        String value = '...';
+        if (snapshot.connectionState == ConnectionState.active && snapshot.hasData) {
+          value = builder(snapshot);
+        } else if (snapshot.hasError) {
+          value = 'Error';
+        }
+
+        return _buildOverviewCard(
+          title: title,
+          value: value,
+          icon: icon,
+          color: color,
+          isLoading: snapshot.connectionState == ConnectionState.waiting,
+        );
+      },
+    );
+  }
+
+  Widget _buildOverviewCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    bool isLoading = false,
+    String? growth,
+  }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -340,32 +405,39 @@ class AdminOverview extends StatelessWidget {
             Row(
               children: [
                 Icon(icon, color: color, size: 24),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    growth,
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                if (growth != null) ...[
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      growth,
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            isLoading
+                ? const SizedBox(
+                    height: 28,
+                    width: 28,
+                    child: CircularProgressIndicator(strokeWidth: 3))
+                : Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
             const SizedBox(height: 4),
             Text(
               title,

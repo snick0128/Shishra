@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -57,16 +58,47 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: 15, // Demo data
-                        itemBuilder: (context, index) {
-                          return _buildUserRow(
-                            name: 'Customer ${index + 1}',
-                            phone: '+91 ${9000000000 + index}',
-                            email: 'customer${index + 1}@example.com',
-                            totalOrders: index + 1,
-                            totalSpent: (index + 1) * 2500,
-                            isActive: index % 7 != 0, // Randomly mark some as inactive
+                      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .orderBy('createdAt', descending: true)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Center(child: Text('Error: ${snapshot.error}'));
+                          }
+                          final docs = snapshot.data?.docs ?? [];
+                          if (docs.isEmpty) {
+                            return const Center(child: Text('No users found'));
+                          }
+                          return ListView.builder(
+                            itemCount: docs.length,
+                            itemBuilder: (context, index) {
+                              final data = docs[index].data();
+                              final name = (data['name'] ?? '').toString();
+                              final phone = (data['phone'] ?? '').toString();
+                              final email = (data['email'] ?? '').toString();
+                              final isActive = (data['isBlocked'] == true) ? false : true;
+                              // Placeholder values; can be replaced with aggregate queries
+                              final totalOrders = (data['orders'] is List)
+                                  ? (data['orders'] as List).length
+                                  : (data['totalOrders'] ?? 0);
+                              final totalSpent = (data['totalSpent'] is num)
+                                  ? (data['totalSpent'] as num).toInt()
+                                  : 0;
+
+                              return _buildUserRow(
+                                name: name.isNotEmpty ? name : '—',
+                                phone: phone.isNotEmpty ? phone : '—',
+                                email: email.isNotEmpty ? email : '—',
+                                totalOrders: totalOrders is int ? totalOrders : 0,
+                                totalSpent: totalSpent,
+                                isActive: isActive,
+                              );
+                            },
                           );
                         },
                       ),
