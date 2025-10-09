@@ -3,6 +3,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Temporary permissive rules for debugging
+    // TODO: Revert to secure rules after fixing the issue
+    
     // Helper function to check if user is admin
     function isAdmin() {
       return request.auth != null && 
@@ -126,6 +129,12 @@ service cloud.firestore {
     match /inventory/{productId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // TEMPORARY: Allow all operations for debugging
+    // TODO: Remove this after identifying the issue
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

@@ -81,6 +81,32 @@ class PriceRangeItem {
   }
 }
 
+class DynamicSection {
+  final String title;
+  final String type; // 'gift_guide', 'occasion', 'price_range', 'material', 'style'
+  final List<CategoryItem> items;
+  final int productCount;
+
+  DynamicSection({
+    required this.title,
+    required this.type,
+    required this.items,
+    required this.productCount,
+  });
+}
+
+class CategoryItem {
+  final String name;
+  final String imageUrl;
+  final int productCount;
+
+  CategoryItem({
+    required this.name,
+    required this.imageUrl,
+    required this.productCount,
+  });
+}
+
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -104,6 +130,9 @@ class FirestoreService {
       'wishlist': [],
       'addresses': [],
       'orders': [],
+      'totalOrders': 0,
+      'totalSpent': 0,
+      'isBlocked': false,
     });
   }
 
@@ -137,6 +166,153 @@ class FirestoreService {
         snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList());
   }
 
+  // Get new arrivals (products added in last 7 days)
+  Future<List<Product>> getNewArrivals() async {
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final snapshot = await _db
+          .collection('products')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      
+      // Filter in memory to avoid complex Firestore queries
+      return products.where((p) => 
+          p.isAvailable && 
+          p.createdAt.isAfter(sevenDaysAgo)
+      ).take(20).toList();
+    } catch (e) {
+      print('Error getting new arrivals: $e');
+      return [];
+    }
+  }
+
+  // Get products for women (jewelry typically worn by women)
+  Future<List<Product>> getForHer() async {
+    try {
+      final womenCategories = ['Necklaces', 'Earrings', 'Bracelets', 'Anklets', 'For Women'];
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      return products.where((p) => 
+          p.isAvailable &&
+          (womenCategories.any((cat) => p.category.contains(cat)) ||
+           p.tags.any((tag) => ['women', 'her', 'female'].contains(tag.toLowerCase())))
+      ).take(15).toList();
+    } catch (e) {
+      print('Error getting products for her: $e');
+      return [];
+    }
+  }
+
+  // Get products for men
+  Future<List<Product>> getForHim() async {
+    try {
+      final menCategories = ['Rings', 'Chains', 'Bracelets', 'For Men'];
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      return products.where((p) => 
+          p.isAvailable &&
+          (menCategories.any((cat) => p.category.contains(cat)) ||
+           p.tags.any((tag) => ['men', 'him', 'male'].contains(tag.toLowerCase())))
+      ).take(15).toList();
+    } catch (e) {
+      print('Error getting products for him: $e');
+      return [];
+    }
+  }
+
+  // Get trending products (most viewed/popular)
+  Future<List<Product>> getTrendingProducts() async {
+    try {
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      return products.where((p) => 
+          p.isAvailable && (p.isBestSeller ?? false)
+      ).take(15).toList();
+    } catch (e) {
+      print('Error getting trending products: $e');
+      return [];
+    }
+  }
+
+  // Get best sellers
+  Future<List<Product>> getBestSellers() async {
+    try {
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      final bestSellers = products.where((p) => 
+          p.isAvailable && (p.isBestSeller ?? false)
+      ).toList();
+      
+      // Sort by price (affordable first)
+      bestSellers.sort((a, b) => a.price.compareTo(b.price));
+      return bestSellers.take(15).toList();
+    } catch (e) {
+      print('Error getting best sellers: $e');
+      return [];
+    }
+  }
+
+  // Get featured collections
+  Future<List<Product>> getFeaturedCollection() async {
+    try {
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      final availableProducts = products.where((p) => p.isAvailable).toList();
+      
+      // Sort by price (premium first)
+      availableProducts.sort((a, b) => b.price.compareTo(a.price));
+      return availableProducts.take(12).toList();
+    } catch (e) {
+      print('Error getting featured collection: $e');
+      return [];
+    }
+  }
+
+  // Get affordable picks (under certain price)
+  Future<List<Product>> getAffordablePicks({double maxPrice = 999.0}) async {
+    try {
+      final snapshot = await _db
+          .collection('products')
+          .limit(50)
+          .get();
+      
+      final products = snapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      final affordableProducts = products.where((p) => 
+          p.isAvailable && p.price <= maxPrice
+      ).toList();
+      
+      // Sort by price (cheapest first)
+      affordableProducts.sort((a, b) => a.price.compareTo(b.price));
+      return affordableProducts.take(15).toList();
+    } catch (e) {
+      print('Error getting affordable picks: $e');
+      return [];
+    }
+  }
+
   // Homepage content methods
   Stream<List<HomeBanner>> getBanners() {
     return _db.collection('banners').orderBy('priority').snapshots().map(
@@ -165,6 +341,108 @@ class FirestoreService {
         snapshot.docs.map((doc) => PriceRangeItem.fromSnapshot(doc)).toList());
   }
 
+  // Dynamic sections based on actual data
+  Future<List<DynamicSection>> getDynamicSections() async {
+    final List<DynamicSection> sections = [];
+    
+    try {
+      // Get all categories
+      final categoriesSnapshot = await _db.collection('categories').get();
+      final categories = categoriesSnapshot.docs.map((doc) => doc.data()['name'] as String).toList();
+      
+      // Get all products to count by category
+      final productsSnapshot = await _db.collection('products').get();
+      final products = productsSnapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
+      
+      // Group categories by type
+      final Map<String, List<String>> categoryGroups = {
+        'Gift Guide': [],
+        'Occasions': [],
+        'Price Ranges': [],
+        'Materials': [],
+        'Styles': [],
+        'Product Types': [],
+      };
+      
+      // Categorize based on category names
+      for (final category in categories) {
+        if (category.startsWith('For ')) {
+          categoryGroups['Gift Guide']!.add(category);
+        } else if (['Wedding', 'Engagement', 'Anniversary', 'Birthday', 'Festival', 'Party', 'Daily Wear', 'Office Wear'].contains(category)) {
+          categoryGroups['Occasions']!.add(category);
+        } else if (category.startsWith('Under ₹') || category.contains('Collection')) {
+          categoryGroups['Price Ranges']!.add(category);
+        } else if (['Gold', 'Silver', 'Diamond', 'Platinum', 'Rose Gold', 'Artificial'].contains(category)) {
+          categoryGroups['Materials']!.add(category);
+        } else if (['Traditional', 'Modern', 'Vintage', 'Contemporary', 'Ethnic', 'Western'].contains(category)) {
+          categoryGroups['Styles']!.add(category);
+        } else {
+          categoryGroups['Product Types']!.add(category);
+        }
+      }
+      
+      // Create sections only for groups that have categories with products
+      for (final entry in categoryGroups.entries) {
+        if (entry.value.isEmpty) continue;
+        
+        final List<CategoryItem> items = [];
+        int totalProductCount = 0;
+        
+        for (final categoryName in entry.value) {
+          final categoryProducts = products.where((p) => p.category == categoryName).length;
+          if (categoryProducts > 0) {
+            items.add(CategoryItem(
+              name: categoryName,
+              imageUrl: _getDefaultImageForCategory(categoryName),
+              productCount: categoryProducts,
+            ));
+            totalProductCount += categoryProducts;
+          }
+        }
+        
+        // Only add section if it has items with products
+        if (items.isNotEmpty) {
+          sections.add(DynamicSection(
+            title: entry.key,
+            type: _getSectionType(entry.key),
+            items: items,
+            productCount: totalProductCount,
+          ));
+        }
+      }
+      
+      return sections;
+    } catch (e) {
+      print('Error getting dynamic sections: $e');
+      return [];
+    }
+  }
+  
+  String _getSectionType(String title) {
+    switch (title) {
+      case 'Gift Guide': return 'gift_guide';
+      case 'Occasions': return 'occasion';
+      case 'Price Ranges': return 'price_range';
+      case 'Materials': return 'material';
+      case 'Styles': return 'style';
+      case 'Product Types': return 'product_type';
+      default: return 'other';
+    }
+  }
+  
+  String _getDefaultImageForCategory(String categoryName) {
+    // Return appropriate placeholder images based on category
+    if (categoryName.startsWith('For ')) {
+      return 'https://source.unsplash.com/random/200x200?gifts,${categoryName.replaceAll('For ', '').toLowerCase()}';
+    } else if (categoryName.startsWith('Under ₹')) {
+      return 'https://source.unsplash.com/random/200x200?jewelry,affordable';
+    } else if (categoryName.contains('Collection')) {
+      return 'https://source.unsplash.com/random/200x200?jewelry,premium';
+    } else {
+      return 'https://source.unsplash.com/random/200x200?jewelry,${categoryName.toLowerCase()}';
+    }
+  }
+
   // Order methods
   Stream<List<app_order.Order>> getOrders(String userId) {
     return _db
@@ -178,11 +456,19 @@ class FirestoreService {
   }
 
   Future<void> addOrder(app_order.Order order) async {
+    // Add order to user's subcollection
     await _db
         .collection('users')
         .doc(order.userId)
         .collection('orders')
         .add(order.toMap());
+    
+    // Update user's total orders and total spent
+    await _db.collection('users').doc(order.userId).update({
+      'totalOrders': FieldValue.increment(1),
+      'totalSpent': FieldValue.increment(order.total),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // Data seeding method

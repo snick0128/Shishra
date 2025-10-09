@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shishra/pages/main_navigation.dart';
 import 'package:shishra/main.dart';
@@ -39,19 +40,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
             },
             children: const [
               OnboardingStep(
-                image: 'assets/images/onboarding1.png',
+                image: 'assets/images/onboarding1.svg',
                 title: 'Welcome to Shishra',
                 description:
                     'Discover a world of exquisite jewelry, handcrafted with love and passion.',
               ),
               OnboardingStep(
-                image: 'assets/images/onboarding2.png',
+                image: 'assets/images/onboarding2.svg',
                 title: 'Create Your Wishlist',
                 description:
                     'Save your favorite pieces and create a wishlist for any occasion.',
               ),
               OnboardingStep(
-                image: 'assets/images/onboarding3.png',
+                image: 'assets/images/onboarding3.svg',
                 title: 'Seamless Shopping',
                 description:
                     'Enjoy a fast, secure, and delightful shopping experience from start to finish.',
@@ -127,7 +128,7 @@ class OnboardingStep extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(image, height: 300),
+          SvgPicture.asset(image, height: 300),
           const SizedBox(height: 40),
           Text(
             title,

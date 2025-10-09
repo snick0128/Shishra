@@ -305,7 +305,7 @@ class AdminOverview extends StatelessWidget {
                     title: 'Total Orders',
                     icon: Icons.shopping_bag,
                     color: Colors.green,
-                    stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+                    stream: FirebaseFirestore.instance.collectionGroup('orders').snapshots(),
                     builder: (snapshot) => snapshot.data != null
                         ? snapshot.data!.docs.length.toString()
                         : '0',
@@ -333,7 +333,7 @@ class AdminOverview extends StatelessWidget {
                     icon: Icons.currency_rupee,
                     color: Colors.blue,
                     stream: FirebaseFirestore.instance
-                        .collection('orders')
+                        .collectionGroup('orders')
                         .where('status', whereIn: ['Confirmed', 'Shipped', 'Delivered'])
                         .snapshots(),
                     builder: (snapshot) {

@@ -1,4 +1,3 @@
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shishra/globals/app_state.dart';
@@ -175,17 +174,23 @@ class AddressManagementPage extends StatelessWidget {
                               break;
                             case 'default':
                               appState.setDefaultAddress(address.id);
-                              Flushbar(
-                                message:
-                                    '${address.title} set as default address',
-                                backgroundColor: Colors.green,
-                                duration: const Duration(seconds: 2),
-                                margin: const EdgeInsets.all(8),
-                                borderRadius: BorderRadius.circular(8),
-                                flushbarPosition: FlushbarPosition.BOTTOM,
-                                icon: const Icon(Icons.check_circle,
-                                    color: Colors.white),
-                              ).show(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Text('${address.title} set as default address'),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              );
                               break;
                             case 'delete':
                               _showDeleteConfirmation(
@@ -269,15 +274,23 @@ class AddressManagementPage extends StatelessWidget {
             onPressed: () {
               appState.deleteAddress(address.id);
               Navigator.pop(context);
-              Flushbar(
-                message: '${address.title} address deleted',
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 2),
-                margin: const EdgeInsets.all(8),
-                borderRadius: BorderRadius.circular(8),
-                flushbarPosition: FlushbarPosition.BOTTOM,
-                icon: const Icon(Icons.delete_outline, color: Colors.white),
-              ).show(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.delete_outline, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text('${address.title} address deleted'),
+                    ],
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -369,17 +382,25 @@ class _AddEditAddressDialogState extends State<AddEditAddressDialog> {
 
       Navigator.pop(context);
 
-      Flushbar(
-        message: widget.address == null
-            ? 'Address added successfully'
-            : 'Address updated successfully',
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.all(8),
-        borderRadius: BorderRadius.circular(8),
-        flushbarPosition: FlushbarPosition.BOTTOM,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
-      ).show(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(widget.address == null
+                  ? 'Address added successfully'
+                  : 'Address updated successfully'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
     }
   }
 

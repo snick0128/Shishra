@@ -1,7 +1,11 @@
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shishra/globals/app_state.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,15 +20,41 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   bool _isEditing = false;
+  File? _selectedImage;
+  String? _profileImageUrl;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
     super.initState();
     final appState = context.read<AppState>();
     _nameController = TextEditingController(text: appState.currentUserName);
-    _emailController =
-        TextEditingController(text: 'user@example.com'); // Default email
     _phoneController = TextEditingController(text: appState.currentUserPhone);
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _emailController = TextEditingController(text: user.email ?? 'user@example.com');
+      
+      // Load profile image from Firestore
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (userDoc.exists && mounted) {
+          setState(() {
+            _profileImageUrl = userDoc.data()?['profileImageUrl'];
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading user data: $e');
+      }
+    } else {
+      _emailController = TextEditingController(text: 'user@example.com');
+    }
   }
 
   @override
@@ -47,24 +77,162 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       final appState = context.read<AppState>();
-      appState.updateUserName(_nameController.text.trim());
+      final user = FirebaseAuth.instance.currentUser;
+      
+      try {
+        // Update name
+        appState.updateUserName(_nameController.text.trim());
+        
+        // Update email if changed
+        if (user != null && _emailController.text.trim() != user.email) {
+          await user.updateEmail(_emailController.text.trim());
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'email': _emailController.text.trim()});
+        }
+        
+        // Update name in Firestore
+        if (user != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'name': _nameController.text.trim()});
+        }
 
+        setState(() {
+          _isEditing = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Profile updated successfully'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Error updating profile: $e')),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 75,
+    );
+
+    if (image != null) {
       setState(() {
-        _isEditing = false;
+        _selectedImage = File(image.path);
+        _isUploadingImage = true;
       });
 
-      Flushbar(
-        message: 'Profile updated successfully',
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.all(8),
-        borderRadius: BorderRadius.circular(8),
-        flushbarPosition: FlushbarPosition.BOTTOM,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
-      ).show(context);
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // Upload to Firebase Storage
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('profile_images')
+              .child('${user.uid}.jpg');
+          
+          await storageRef.putFile(_selectedImage!);
+          final downloadUrl = await storageRef.getDownloadURL();
+
+          // Update Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'profileImageUrl': downloadUrl});
+
+          setState(() {
+            _profileImageUrl = downloadUrl;
+            _isUploadingImage = false;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Profile picture updated successfully'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        setState(() {
+          _isUploadingImage = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Error uploading image: $e')),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -127,30 +295,55 @@ class _ProfilePageState extends State<ProfilePage> {
                             decoration: BoxDecoration(
                               color: Colors.black,
                               borderRadius: BorderRadius.circular(60),
+                              border: Border.all(color: Colors.grey.shade300, width: 2),
                             ),
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 60,
-                            ),
+                            child: _isUploadingImage
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : ClipRRect(
+                                    borderRadius: BorderRadius.circular(60),
+                                    child: _profileImageUrl != null
+                                        ? Image.network(
+                                            _profileImageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                                size: 60,
+                                              );
+                                            },
+                                          )
+                                        : const Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 60,
+                                          ),
+                                  ),
                           ),
                           if (_isEditing)
                             Positioned(
                               bottom: 0,
                               right: 0,
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 20,
+                              child: GestureDetector(
+                                onTap: _pickAndUploadImage,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border:
+                                        Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                             ),
@@ -327,7 +520,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               Expanded(
                                 child: _buildStatCard(
                                   'Orders',
-                                  '12',
+                                  appState.orders.length.toString(),
                                   Icons.shopping_bag_outlined,
                                   Colors.blue,
                                 ),
@@ -358,7 +551,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               Expanded(
                                 child: _buildStatCard(
                                   'Saved',
-                                  '8',
+                                  appState.wishlist.length.toString(),
                                   Icons.bookmark_outline,
                                   Colors.orange,
                                 ),

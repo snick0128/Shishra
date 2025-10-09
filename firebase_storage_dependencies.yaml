@@ -1,0 +1,54 @@
+# Add these dependencies to your pubspec.yaml file
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Firebase packages
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  firebase_storage: ^11.6.0
+  cloud_firestore: ^4.13.6
+  
+  # Image handling packages
+  image_picker: ^1.0.4
+  flutter_image_compress: ^2.1.0
+  cached_network_image: ^3.3.0
+  
+  # Utility packages
+  uuid: ^4.2.1
+  path: ^1.8.3
+  
+  # UI packages (if not already included)
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+# Platform specific configurations
+flutter:
+  uses-material-design: true
+
+# For iOS, add these permissions to ios/Runner/Info.plist:
+# <key>NSCameraUsageDescription</key>
+# <string>This app needs access to camera to take photos</string>
+# <key>NSPhotoLibraryUsageDescription</key>
+# <string>This app needs access to photo library to select images</string>
+
+# For Android, add these permissions to android/app/src/main/AndroidManifest.xml:
+# <uses-permission android:name="android.permission.CAMERA" />
+# <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+# <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+# Firebase Storage Rules (add to your Firebase console):
+# rules_version = '2';
+# service firebase.storage {
+#   match /b/{bucket}/o {
+#     match /{allPaths=**} {
+#       allow read: if true;
+#       allow write: if request.auth != null;
+#     }
+#   }
+# }

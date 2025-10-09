@@ -60,7 +60,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
         shippingAddress = appState.addresses.firstWhere((a) => a.id == _selectedAddressId);
       }
 
-      await appState.placeOrder(shippingAddress);
+      // Convert payment method to readable format
+      final paymentMethodText = _selectedPaymentMethod == 'cod' 
+          ? 'Cash on Delivery' 
+          : 'Online Payment';
+      
+      await appState.placeOrder(shippingAddress, paymentMethod: paymentMethodText);
 
       if (!mounted) return;
 

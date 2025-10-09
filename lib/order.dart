@@ -8,7 +8,8 @@ class Order {
   final List<CartItem> items;
   final double total;
   final Address shippingAddress;
-  final String status; // e.g., 'Pending', 'Shipped', 'Delivered'
+  final String status; // e.g., 'Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'
+  final String paymentMethod; // e.g., 'cod', 'online'
   final DateTime createdAt;
 
   Order({
@@ -18,6 +19,7 @@ class Order {
     required this.total,
     required this.shippingAddress,
     required this.status,
+    required this.paymentMethod,
     required this.createdAt,
   });
 
@@ -25,14 +27,15 @@ class Order {
     final data = snapshot.data() as Map<String, dynamic>;
     return Order(
       id: snapshot.id,
-      userId: data['userId'],
-      items: (data['items'] as List)
-          .map((item) => CartItem.fromMap(item))
-          .toList(),
-      total: data['total'],
-      shippingAddress: Address.fromMap(data['shippingAddress']),
-      status: data['status'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      userId: data['userId'] ?? '',
+      items: (data['items'] as List?)
+          ?.map((item) => CartItem.fromMap(item))
+          .toList() ?? [],
+      total: (data['total'] ?? 0).toDouble(),
+      shippingAddress: Address.fromMap(data['shippingAddress'] ?? {}),
+      status: data['status'] ?? 'Pending',
+      paymentMethod: data['paymentMethod'] ?? 'Cash on Delivery',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -43,7 +46,8 @@ class Order {
       'total': total,
       'shippingAddress': shippingAddress.toMap(),
       'status': status,
-      'createdAt': createdAt,
+      'paymentMethod': paymentMethod,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 }

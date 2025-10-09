@@ -7,21 +7,34 @@ import 'package:shishra/firestore_service.dart';
 import 'package:shishra/pages/cart_page.dart';
 import 'package:shishra/pages/products_list_page.dart';
 import 'package:shishra/product.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomePageData {
   final List<HomeBanner> banners;
   final List<Category> categories;
   final List<Product> newArrivals;
+  final List<Product> forHer;
+  final List<Product> forHim;
+  final List<Product> trending;
+  final List<Product> bestSellers;
+  final List<Product> featuredCollection;
+  final List<Product> affordablePicks;
   final List<Product> recentlyViewed;
   final List<GiftingGuideItem> giftingItems;
+  final List<DynamicSection> dynamicSections;
 
   HomePageData({
     required this.banners,
     required this.categories,
     required this.newArrivals,
+    required this.forHer,
+    required this.forHim,
+    required this.trending,
+    required this.bestSellers,
+    required this.featuredCollection,
+    required this.affordablePicks,
     required this.recentlyViewed,
     required this.giftingItems,
+    required this.dynamicSections,
   });
 }
 
@@ -50,23 +63,31 @@ class _HomePageState extends State<HomePage> {
     final results = await Future.wait([
       _firestoreService.getBanners().first,
       _firestoreService.getCategories().first,
-      FirebaseFirestore.instance
-          .collection('products')
-          .orderBy('createdAt', descending: true)
-          .get(),
+      _firestoreService.getNewArrivals(),
+      _firestoreService.getForHer(),
+      _firestoreService.getForHim(),
+      _firestoreService.getTrendingProducts(),
+      _firestoreService.getBestSellers(),
+      _firestoreService.getFeaturedCollection(),
+      _firestoreService.getAffordablePicks(),
       _firestoreService.getGiftingGuideItems().first,
+      _firestoreService.getDynamicSections(),
     ]);
 
     final banners = results[0] as List<HomeBanner>;
     final categories = results[1] as List<Category>;
-    final productsSnapshot = results[2] as QuerySnapshot;
-    final products =
-        productsSnapshot.docs.map((doc) => Product.fromSnapshot(doc)).toList();
-    final giftingItems = results[3] as List<GiftingGuideItem>;
+    final newArrivals = results[2] as List<Product>;
+    final forHer = results[3] as List<Product>;
+    final forHim = results[4] as List<Product>;
+    final trending = results[5] as List<Product>;
+    final bestSellers = results[6] as List<Product>;
+    final featuredCollection = results[7] as List<Product>;
+    final affordablePicks = results[8] as List<Product>;
+    final giftingItems = results[9] as List<GiftingGuideItem>;
+    final dynamicSections = results[10] as List<DynamicSection>;
 
-    final availableProducts = products.where((p) => p.stock > 0).toList();
-    final newArrivals = availableProducts.where((p) => p.isNewArrival).toList();
-    final recentlyViewed = availableProducts.take(10).toList();
+    // Use empty list for recently viewed to avoid Firestore indexing issues
+    final recentlyViewed = <Product>[];
 
     // Start banner timer only after data is loaded
     _startBannerTimer(banners.length);
@@ -75,8 +96,15 @@ class _HomePageState extends State<HomePage> {
       banners: banners,
       categories: categories,
       newArrivals: newArrivals,
+      forHer: forHer,
+      forHim: forHim,
+      trending: trending,
+      bestSellers: bestSellers,
+      featuredCollection: featuredCollection,
+      affordablePicks: affordablePicks,
       recentlyViewed: recentlyViewed,
       giftingItems: giftingItems,
+      dynamicSections: dynamicSections,
     );
   }
 
@@ -136,28 +164,123 @@ class _HomePageState extends State<HomePage> {
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
               _buildForWhomSection(),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
-              _buildSectionHeader('New Arrivals', () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const ProductsListPage(
-                            title: 'New Arrivals')));
-              }),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _buildProductCarousel(homeData.newArrivals),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-              _buildSectionHeader('Shop by Price', () {}),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _buildDiscoverByRange(),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-              _buildSectionHeader('Gift Guide', () {}),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _buildGiftingGuide(homeData.giftingItems),
-              const SliverToBoxAdapter(child: SizedBox(height: 40)),
-              _buildSectionHeader('Recently Viewed', () {}),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _buildProductCarousel(homeData.recentlyViewed),
-              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+              
+              // New Arrivals - Only last 7 days
+              if (homeData.newArrivals.isNotEmpty) ...[
+                _buildSectionHeader('New Arrivals', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'New Arrivals')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.newArrivals),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // For Her Section
+              if (homeData.forHer.isNotEmpty) ...[
+                _buildSectionHeader('For Her 💎', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'For Her')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.forHer),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // For Him Section
+              if (homeData.forHim.isNotEmpty) ...[
+                _buildSectionHeader('For Him 👑', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'For Him')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.forHim),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // Trending Section
+              if (homeData.trending.isNotEmpty) ...[
+                _buildSectionHeader('Trending Now 🔥', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'Trending Now')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.trending),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // Best Sellers Section
+              if (homeData.bestSellers.isNotEmpty) ...[
+                _buildSectionHeader('Best Sellers ⭐', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'Best Sellers')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.bestSellers),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // Affordable Picks Section
+              if (homeData.affordablePicks.isNotEmpty) ...[
+                _buildSectionHeader('Under ₹999 💰', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'Under ₹999')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.affordablePicks),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // Featured Collection Section
+              if (homeData.featuredCollection.isNotEmpty) ...[
+                _buildSectionHeader('Featured Collection ✨', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'Featured Collection')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.featuredCollection),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              // Dynamic sections based on actual data
+              ..._buildDynamicSections(homeData.dynamicSections),
+              
+              // Recently Viewed Section
+              if (homeData.recentlyViewed.isNotEmpty) ...[
+                _buildSectionHeader('Recently Viewed', () {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ProductsListPage(
+                              title: 'Recently Viewed')));
+                }),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                _buildProductCarousel(homeData.recentlyViewed),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
               _buildFooter(),
             ],
           );
@@ -226,7 +349,9 @@ class _HomePageState extends State<HomePage> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search, color: Colors.black, size: 24),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.pushNamed(context, '/advanced-search');
+          },
         ),
         IconButton(
           icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black, size: 24),
@@ -341,56 +466,69 @@ class _HomePageState extends State<HomePage> {
           itemCount: categories.length,
           itemBuilder: (context, index) {
             final category = categories[index];
-            return Container(
-              width: 85,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              child: Column(
-                children: [
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductsListPage(
+                      title: category.name,
+                      category: category.name,
                     ),
-                    child: category.iconUrl.isNotEmpty
-                        ? ClipOval(
-                            child: Image.network(
-                              category.iconUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                Icons.diamond_outlined,
-                                color: Colors.grey.shade600,
-                                size: 32,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.diamond_outlined,
-                            color: Colors.grey.shade600,
-                            size: 32,
+                  ),
+                );
+              },
+              child: Container(
+                width: 85,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    category.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                        ],
+                      ),
+                      child: category.iconUrl.isNotEmpty
+                          ? ClipOval(
+                              child: Image.network(
+                                category.iconUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Icon(
+                                  Icons.diamond_outlined,
+                                  color: Colors.grey.shade600,
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.diamond_outlined,
+                              color: Colors.grey.shade600,
+                              size: 32,
+                            ),
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      category.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -666,174 +804,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  SliverToBoxAdapter _buildDiscoverByRange() {
-    final ranges = [
-      {'label': 'Under ₹999', 'gradient': [Colors.purple.shade300, Colors.purple.shade500], 'icon': Icons.attach_money},
-      {'label': 'Under ₹2999', 'gradient': [Colors.green.shade300, Colors.green.shade500], 'icon': Icons.card_giftcard},
-      {'label': 'Under ₹4999', 'gradient': [Colors.orange.shade300, Colors.orange.shade500], 'icon': Icons.star},
-      {'label': 'Premium Gifts', 'gradient': [Colors.red.shade300, Colors.red.shade500], 'icon': Icons.diamond},
-    ];
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.4,
-          ),
-          itemCount: ranges.length,
-          itemBuilder: (context, index) {
-            final range = ranges[index];
-            return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: range['gradient'] as List<Color>,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (range['gradient'] as List<Color>)[0].withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {},
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          range['icon'] as IconData,
-                          color: Colors.white,
-                          size: 36,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          range['label'] as String,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontSize: 16,
-                            letterSpacing: 0.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  SliverToBoxAdapter _buildGiftingGuide(List<GiftingGuideItem> gifts) {
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 140,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: gifts.length,
-          itemBuilder: (context, index) {
-            final gift = gifts[index];
-            return Container(
-              width: 130,
-              margin: const EdgeInsets.only(right: 16),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(
-                              gift.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.primaries[index % Colors.primaries.length].shade300,
-                                      Colors.primaries[index % Colors.primaries.length].shade500,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.card_giftcard,
-                                    color: Colors.white,
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.6),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    gift.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
 
   SliverToBoxAdapter _buildFooter() {
     return SliverToBoxAdapter(
@@ -863,16 +833,270 @@ class _HomePageState extends State<HomePage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/contact');
+                    },
                     icon: const Icon(Icons.camera_alt_outlined,
                         color: Colors.white)),
                 IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/help');
+                    },
                     icon: const Icon(Icons.chat_bubble_outline,
                         color: Colors.white)),
               ],
             )
           ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildDynamicSections(List<DynamicSection> sections) {
+    final List<Widget> widgets = [];
+    
+    for (final section in sections) {
+      // Add section header
+      widgets.add(_buildSectionHeader(section.title, () {
+        Navigator.pushNamed(context, '/advanced-search');
+      }));
+      
+      widgets.add(const SliverToBoxAdapter(child: SizedBox(height: 8)));
+      
+      // Add section content based on type
+      if (section.type == 'gift_guide' || section.type == 'occasion') {
+        widgets.add(_buildCategoryGrid(section.items));
+      } else if (section.type == 'price_range') {
+        widgets.add(_buildPriceRangeGrid(section.items));
+      } else {
+        widgets.add(_buildCategoryGrid(section.items));
+      }
+      
+      widgets.add(const SliverToBoxAdapter(child: SizedBox(height: 40)));
+    }
+    
+    return widgets;
+  }
+
+  SliverToBoxAdapter _buildCategoryGrid(List<CategoryItem> items) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 140,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductsListPage(
+                      title: item.name,
+                      category: item.name,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                width: 130,
+                margin: const EdgeInsets.only(right: 16),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                item.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.primaries[index % Colors.primaries.length].shade300,
+                                        Colors.primaries[index % Colors.primaries.length].shade500,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.card_giftcard,
+                                      color: Colors.white,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.6),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (item.productCount > 0)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.9),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${item.productCount}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  SliverToBoxAdapter _buildPriceRangeGrid(List<CategoryItem> items) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.4,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final colors = [
+              [Colors.purple.shade300, Colors.purple.shade500],
+              [Colors.green.shade300, Colors.green.shade500],
+              [Colors.orange.shade300, Colors.orange.shade500],
+              [Colors.red.shade300, Colors.red.shade500],
+            ];
+            final colorSet = colors[index % colors.length];
+            
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: colorSet,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorSet[0].withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductsListPage(
+                          title: item.name,
+                          category: item.name,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          item.name.startsWith('Under') ? Icons.attach_money : Icons.diamond,
+                          color: Colors.white,
+                          size: 36,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 16,
+                            letterSpacing: 0.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (item.productCount > 0) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${item.productCount} items',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

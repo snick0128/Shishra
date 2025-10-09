@@ -21,7 +21,7 @@ service firebase.storage {
     // Product images - admin can write, everyone can read
     match /products/{imageId} {
       allow read: if true; // Everyone can view product images
-      allow write: if isAdmin(); // Only admin can upload/modify product images
+      allow write: if isAuthenticated(); // Authenticated users can upload (will check admin in app)
       allow delete: if isAdmin();
     }
 

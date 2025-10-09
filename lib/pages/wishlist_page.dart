@@ -1,4 +1,3 @@
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:shishra/globals/app_state.dart';
 import 'package:shishra/components/product_card.dart';
@@ -63,16 +62,23 @@ class _WishlistPageState extends State<WishlistPage> {
                                   appState.toggleWishlist(product.id);
                                 }
                                 Navigator.of(context).pop();
-                                Flushbar(
-                                  message: 'Wishlist cleared',
-                                  backgroundColor: Colors.black,
-                                  duration: const Duration(seconds: 2),
-                                  margin: const EdgeInsets.all(8),
-                                  borderRadius: BorderRadius.circular(8),
-                                  flushbarPosition: FlushbarPosition.BOTTOM,
-                                  icon: const Icon(Icons.favorite_border,
-                                      color: Colors.white),
-                                ).show(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.favorite_border, color: Colors.white),
+                                        SizedBox(width: 8),
+                                        Text('Wishlist cleared'),
+                                      ],
+                                    ),
+                                    backgroundColor: Colors.black,
+                                    duration: const Duration(seconds: 2),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                );
                               },
                               child: const Text('Clear',
                                   style: TextStyle(color: Colors.red)),

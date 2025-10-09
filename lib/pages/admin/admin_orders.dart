@@ -25,7 +25,11 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
   @override
   void initState() {
     super.initState();
-    _ordersStream = _firestore.collection('orders').snapshots().map(
+    _ordersStream = _getAllOrdersStream();
+  }
+
+  Stream<List<app_order.Order>> _getAllOrdersStream() {
+    return _firestore.collectionGroup('orders').snapshots().map(
       (snapshot) => snapshot.docs.map((doc) => app_order.Order.fromSnapshot(doc)).toList(),
     );
   }
@@ -162,18 +166,23 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
           Expanded(
             flex: 2,
             child: Text(
-              order.id.isEmpty ? 'N/A' : order.id,
+              order.id.isEmpty ? 'N/A' : (order.id.length > 8 ? order.id.substring(0, 8) : order.id),
               style: const TextStyle(fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(order.shippingAddress.fullName),
+            child: Text(
+              order.shippingAddress.fullName,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Expanded(
             flex: 2,
             child: Text(
               '${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}',
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
@@ -181,6 +190,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
             child: Text(
               '₹${order.total.toStringAsFixed(0)}',
               style: const TextStyle(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
@@ -200,6 +210,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -337,7 +348,13 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  await _firestore.collection('orders').doc(order.id).update({
+                  // Update order in user's subcollection
+                  await _firestore
+                      .collection('users')
+                      .doc(order.userId)
+                      .collection('orders')
+                      .doc(order.id)
+                      .update({
                     'status': selectedStatus,
                     'updatedAt': FieldValue.serverTimestamp(),
                   });
@@ -378,7 +395,13 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
           ElevatedButton(
             onPressed: () async {
               try {
-                await _firestore.collection('orders').doc(order.id).update({
+                // Cancel order in user's subcollection
+                await _firestore
+                    .collection('users')
+                    .doc(order.userId)
+                    .collection('orders')
+                    .doc(order.id)
+                    .update({
                   'status': 'Cancelled',
                   'updatedAt': FieldValue.serverTimestamp(),
                 });

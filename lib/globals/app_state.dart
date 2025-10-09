@@ -467,7 +467,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> placeOrder(Address shippingAddress) async {
+  Future<void> placeOrder(Address shippingAddress, {String paymentMethod = 'Cash on Delivery'}) async {
     if (!isLoggedIn) {
       throw Exception('User must be logged in to place order');
     }
@@ -479,6 +479,7 @@ class AppState extends ChangeNotifier {
       total: finalPayableTotal,
       shippingAddress: shippingAddress,
       status: 'Pending',
+      paymentMethod: paymentMethod,
       createdAt: DateTime.now(),
     );
     

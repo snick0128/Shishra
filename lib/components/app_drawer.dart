@@ -24,10 +24,22 @@ class AppDrawer extends StatelessWidget {
           _buildDrawerItem(context, 'Home', Icons.home_outlined, () {
             Navigator.pop(context); // Close drawer
           }),
-          _buildDrawerItem(context, 'Shop by Category', Icons.category_outlined, () {}),
-          _buildDrawerItem(context, 'Shop by Occasion', Icons.event_outlined, () {}),
-          _buildDrawerItem(context, 'Shop by Price Range', Icons.price_change_outlined, () {}),
-          _buildDrawerItem(context, 'Gifting Guide', Icons.card_giftcard_outlined, () {}),
+          _buildDrawerItem(context, 'Shop by Category', Icons.category_outlined, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/advanced-search');
+          }),
+          _buildDrawerItem(context, 'Shop by Occasion', Icons.event_outlined, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/advanced-search');
+          }),
+          _buildDrawerItem(context, 'Shop by Price Range', Icons.price_change_outlined, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/advanced-search');
+          }),
+          _buildDrawerItem(context, 'Gifting Guide', Icons.card_giftcard_outlined, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/advanced-search');
+          }),
           const Divider(),
           _buildDrawerItem(context, 'Orders', Icons.receipt_long_outlined, () {
             Navigator.pop(context);
@@ -46,7 +58,10 @@ class AppDrawer extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
           }),
           const Divider(),
-          _buildDrawerItem(context, 'About Us', Icons.info_outline, () {}),
+          _buildDrawerItem(context, 'About Us', Icons.info_outline, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/about');
+          }),
           _buildDrawerItem(context, 'Contact / Customer Support', Icons.headset_mic_outlined, () {
              Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactUsPage()));
@@ -118,8 +133,14 @@ class AppDrawer extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.camera_alt_outlined)), // Instagram
-            IconButton(onPressed: () {}, icon: const Icon(Icons.chat_bubble_outline)), // WhatsApp
+            IconButton(onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/contact');
+            }, icon: const Icon(Icons.camera_alt_outlined)), // Instagram
+            IconButton(onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/help');
+            }, icon: const Icon(Icons.chat_bubble_outline)), // WhatsApp
           ],
         ),
         if (user != null)

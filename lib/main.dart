@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shishra/firebase_options.dart';
 import 'package:shishra/globals/app_state.dart';
 import 'package:shishra/pages/splash_screen.dart';
+import 'package:shishra/pages/advanced_search_page.dart';
 import 'package:shishra/firestore_service.dart';
 import 'package:shishra/services/admin_service.dart';
 
@@ -40,6 +41,29 @@ class MyApp extends StatelessWidget {
         theme: AppState.of(context).theme,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/advanced-search': (context) => const AdvancedSearchPage(),
+          '/profile': (context) => Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: const Center(child: Text('Profile Page - Coming Soon')),
+          ),
+          '/help': (context) => Scaffold(
+            appBar: AppBar(title: const Text('Help & Support')),
+            body: const Center(child: Text('Help & Support - Coming Soon')),
+          ),
+          '/about': (context) => Scaffold(
+            appBar: AppBar(title: const Text('About Us')),
+            body: const Center(child: Text('About Us - Coming Soon')),
+          ),
+          '/contact': (context) => Scaffold(
+            appBar: AppBar(title: const Text('Contact Us')),
+            body: const Center(child: Text('Contact Us - Coming Soon')),
+          ),
+          '/cart': (context) => Scaffold(
+            appBar: AppBar(title: const Text('Cart')),
+            body: const Center(child: Text('Cart Page - Coming Soon')),
+          ),
+        },
       ),
     );
   }

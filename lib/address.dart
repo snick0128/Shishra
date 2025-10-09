@@ -51,14 +51,14 @@ class Address {
 
   factory Address.fromMap(Map<String, dynamic> map) {
     return Address(
-      id: map['id'],
-      title: map['title'],
-      fullName: map['fullName'],
-      phoneNumber: map['phoneNumber'],
-      addressLine: map['addressLine'],
-      city: map['city'],
-      pincode: map['pincode'],
-      isDefault: map['isDefault'],
+      id: map['id'] ?? '',
+      title: map['title'] ?? 'Address',
+      fullName: map['fullName'] ?? '',
+      phoneNumber: map['phoneNumber'] ?? '',
+      addressLine: map['addressLine'] ?? '',
+      city: map['city'] ?? '',
+      pincode: map['pincode'] ?? '',
+      isDefault: map['isDefault'] ?? false,
     );
   }
 

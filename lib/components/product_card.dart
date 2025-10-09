@@ -3,7 +3,6 @@ import 'package:shishra/product.dart';
 import 'package:shishra/pages/product_detail_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shishra/globals/app_state.dart';
-import 'package:another_flushbar/flushbar.dart';
 
 class ProductCard extends StatelessWidget {
   const ProductCard({super.key, required this.product});
@@ -16,33 +15,33 @@ class ProductCard extends StatelessWidget {
   }
 
   void _showAddToCartSnackBar(BuildContext context, Product product) {
-    Flushbar(
-      message: '"${product.name}" added to cart',
-      backgroundColor: Colors.green,
-      duration: const Duration(seconds: 3),
-      margin: const EdgeInsets.all(8),
-      borderRadius: BorderRadius.circular(8),
-      flushbarPosition: FlushbarPosition.BOTTOM,
-      icon: const Icon(
-        Icons.shopping_cart,
-        color: Colors.white,
-      ),
-      mainButton: TextButton(
-        onPressed: () {
-          if (Navigator.canPop(context)) {
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-          Navigator.pushNamed(context, '/cart');
-        },
-        child: const Text(
-          'VIEW CART',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.shopping_cart, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text('"${product.name}" added to cart')),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        action: SnackBarAction(
+          label: 'VIEW CART',
+          textColor: Colors.white,
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.popUntil(context, (route) => route.isFirst);
+            }
+            Navigator.pushNamed(context, '/cart');
+          },
         ),
       ),
-    ).show(context);
+    );
   }
 
   @override
